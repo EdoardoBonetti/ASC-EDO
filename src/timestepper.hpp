@@ -6,14 +6,14 @@
 
 #include "Newton.hpp"
 
-
 namespace ASC_ode
 {
-  
+
   class TimeStepper
-  { 
+  {
   protected:
     std::shared_ptr<NonlinearFunction> m_rhs;
+
   public:
     TimeStepper(std::shared_ptr<NonlinearFunction> rhs) : m_rhs(rhs) {}
     virtual ~TimeStepper() = default;
@@ -23,9 +23,10 @@ namespace ASC_ode
   class ExplicitEuler : public TimeStepper
   {
     Vector<> m_vecf;
+
   public:
-    ExplicitEuler(std::shared_ptr<NonlinearFunction> rhs) 
-    : TimeStepper(rhs), m_vecf(rhs->dimF()) {}
+    ExplicitEuler(std::shared_ptr<NonlinearFunction> rhs)
+        : TimeStepper(rhs), m_vecf(rhs->dimF()) {}
     void doStep(double tau, VectorView<double> y) override
     {
       this->m_rhs->evaluate(y, m_vecf);
@@ -38,9 +39,10 @@ namespace ASC_ode
     std::shared_ptr<NonlinearFunction> m_equ;
     std::shared_ptr<Parameter> m_tau;
     std::shared_ptr<ConstantFunction> m_yold;
+
   public:
-    ImplicitEuler(std::shared_ptr<NonlinearFunction> rhs) 
-    : TimeStepper(rhs), m_tau(std::make_shared<Parameter>(0.0)) 
+    ImplicitEuler(std::shared_ptr<NonlinearFunction> rhs)
+        : TimeStepper(rhs), m_tau(std::make_shared<Parameter>(0.0))
     {
       m_yold = std::make_shared<ConstantFunction>(rhs->dimX());
       auto ynew = std::make_shared<IdentityFunction>(rhs->dimX());
@@ -55,10 +57,29 @@ namespace ASC_ode
     }
   };
 
+  class ImprovedEuler : public TimeStepper
+  {
+    Vector<> m_vecf;
+    Vector<> ytilde;
 
-  
+  public:
+    ImprovedEuler(std::shared_ptr<NonlinearFunction> rhs)
+        : TimeStepper(rhs), m_vecf(rhs->dimF()), ytilde(rhs->dimX())
+    {
+    }
+    void doStep(double tau, VectorView<double> y) override
+    {
+      /*
+      ytilde = y + tau/2 * f(tn, y)
+      ftilde = y + tau* f( ytilde)
+      */
+      this->m_rhs->evaluate(y, m_vecf);
+      ytilde = y + (tau / 2.0) * m_vecf;
+      this->m_rhs->evaluate(ytilde, m_vecf);
+      y += tau * m_vecf;
+    }
+  };
 
 }
-
 
 #endif
